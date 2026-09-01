@@ -24,16 +24,21 @@ public class DataInitializer implements CommandLineRunner {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final IndexDefRepository indexDefRepository;
+    private final WatchlistRepository watchlistRepository;
+    private final PositionRepository positionRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataInitializer(UserRepository userRepository, StockRepository stockRepository,
                            PostRepository postRepository, CommentRepository commentRepository,
-                           IndexDefRepository indexDefRepository, PasswordEncoder passwordEncoder) {
+                           IndexDefRepository indexDefRepository, WatchlistRepository watchlistRepository,
+                           PositionRepository positionRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.stockRepository = stockRepository;
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
         this.indexDefRepository = indexDefRepository;
+        this.watchlistRepository = watchlistRepository;
+        this.positionRepository = positionRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -58,7 +63,7 @@ public class DataInitializer implements CommandLineRunner {
         User u4 = mkUser("user4", "科技观察", "#9B59B6", "跟踪半导体与AI产业链", 21000);
         User u5 = mkUser("user5", "小白学投资", "#F39C12", "边学边记，欢迎指教", 920);
         User u6 = mkUser("user6", "宏观笔记", "#16A085", "读宏观数据，看资产价格", 15700);
-        mkUser("demo", "我（演示）", "#E64340", "这是演示账号，前端自动登录", 1);
+        User demo = mkUser("demo", "我（演示）", "#E64340", "这是演示账号，前端自动登录", 1);
 
         // ---------- 股票 ----------
         Stock s1 = stockRepository.save(new Stock("SH600519", "贵州茅台", new BigDecimal("1685.00"),
@@ -103,6 +108,17 @@ public class DataInitializer implements CommandLineRunner {
         comments.add(comment(posts.get(11), u3, "先看仓位重不重，重就别补，轻仓可以分批。", hoursAgo(33)));
         comments.add(comment(posts.get(11), u6, "浮亏先问自己：买入逻辑变没变？没变就拿着。", hoursAgo(32)));
         commentRepository.saveAll(comments);
+
+        // ---------- 演示账号的自选与持仓（前端行情中心 / 持仓 Tab 默认有内容） ----------
+        watchlistRepository.save(new Watchlist(demo.getId(), "SH600519", 0)); // 贵州茅台
+        watchlistRepository.save(new Watchlist(demo.getId(), "SZ300750", 1)); // 宁德时代
+        watchlistRepository.save(new Watchlist(demo.getId(), "SH601318", 2)); // 中国平安
+        watchlistRepository.save(new Watchlist(demo.getId(), "HK00700", 3));  // 腾讯控股
+
+        positionRepository.save(new Position(demo.getId(), "SH600519",
+                new BigDecimal("100"), new BigDecimal("1500.00"))); // 茅台 100 股 @1500
+        positionRepository.save(new Position(demo.getId(), "SZ300750",
+                new BigDecimal("500"), new BigDecimal("210.00")));  // 宁德 500 股 @210
     }
 
     // ---------- 工具方法 ----------

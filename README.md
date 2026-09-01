@@ -23,10 +23,10 @@
 ├── backend/          # Spring Boot 后端（Java）
 │   ├── pom.xml
 │   └── src/main/java/com/xueqiu/clone/
-│       ├── model/       实体：User / Stock / Post / Comment / PostLike / IndexDef / Follow
-│       ├── repository/  JPA 仓储（含 PostLikeRepository / IndexDefRepository / FollowRepository）
-│       ├── service/     FeedService / StockService / UserService / QuoteService / QuotePushScheduler
-│       ├── controller/  FeedController / StockController / UserController / QuoteController / AuthController / SearchController / IndexDefController
+│       ├── model/       实体：User / Stock / Post / Comment / PostLike / IndexDef / Follow / Watchlist / Position
+│       ├── repository/  JPA 仓储（含 PostLikeRepository / IndexDefRepository / FollowRepository / WatchlistRepository / PositionRepository）
+│       ├── service/     FeedService / StockService / UserService / QuoteService / QuotePushScheduler / PortfolioService
+│       ├── controller/  FeedController / StockController / UserController / QuoteController / AuthController / SearchController / IndexDefController / WatchlistController
 │       ├── dto/         响应体（避免直接暴露实体）
 │       ├── filter/      JWT 认证过滤器
 │       └── config/      CORS、安全、JWT、WebSocket、Mock 数据初始化
@@ -59,6 +59,12 @@ mvn spring-boot:run
 #   GET  http://localhost:8080/api/users/2/following      # 关注列表
 #   GET  http://localhost:8080/api/users/2/followers      # 粉丝列表
 #   GET  http://localhost:8080/api/feed?type=following     # 关注流（需登录，仅聚合已关注用户）
+#   GET  http://localhost:8080/api/watchlist              # 我的自选（含实时行情，需 token）
+#   POST http://localhost:8080/api/watchlist/SH600519     # 加入自选（幂等，再调即取消，需 token）
+#   DELETE http://localhost:8080/api/watchlist/SH600519   # 取消自选（需 token）
+#   GET  http://localhost:8080/api/positions              # 我的持仓（含实时盈亏，需 token）
+#   POST http://localhost:8080/api/positions              # 保存/更新持仓（body: {symbol,shares,avgCost}，需 token）
+#   DELETE http://localhost:8080/api/positions/SH600519   # 移除持仓（需 token）
 #   GET  http://localhost:8080/api/search?q=茅台&type=all  # 搜索
 #   POST http://localhost:8080/api/auth/register         # 注册（body: {username,name,password}）
 #   POST http://localhost:8080/api/auth/login            # 登录（body: {username,password}）
@@ -105,6 +111,12 @@ npm run build && npm run preview
   与「是否已关注」状态；支持按 id 或用户名访问主页（`/user/:id`、`/user/:username`）
 - **关注流**：首页信息流新增「关注」Tab，仅聚合已关注用户的讨论（需登录）；未关注任何人时给出空态引导
 - **@提及解析**：正文中的 `@用户名` 渲染为可点击链接，跳转对应用户主页（与 `$代码` cashtag 并列）
+- **自选股（按用户持久化）**：每个用户维护一组关注标的（`t_watchlist` 表，用户+代码唯一约束），
+  行情中心「自选股」Tab 展示实时报价、支持输入代码加自选 / 热门列表一键加 / 行内移除；个股详情页
+  提供「加自选 / 已自选」按钮（状态按登录用户）
+- **持仓管理（含浮动盈亏）**：用户持仓落库（`t_position` 表，份额 + 成本价），行情中心「持仓」Tab
+  用实时行情计算市值、成本、浮动盈亏与盈亏比例，并汇总组合总盈亏；支持新增 / 编辑 / 删除持仓
+- **离线兜底**：后端未启动时，自选 / 持仓自动回退到浏览器 `localStorage`，交互不中断
 - 路由：首页 `/`、行情 `/market`、个股 `/stock/:symbol`、帖子 `/post/:id`、用户 `/user/:id`、搜索 `/search`
 
 ### 实时行情接入（可配置行情 Key）

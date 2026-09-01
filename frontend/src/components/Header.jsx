@@ -70,9 +70,12 @@ export default function Header() {
         <Link to="/">首页</Link>
         <Link to="/market">行情</Link>
         {me ? (
-          <Link to={`/user/${me.username}`}>我的</Link>
+          <>
+            <Link to="/market">自选</Link>
+            <Link to={`/user/${me.username}`}>我的</Link>
+          </>
         ) : (
-          <a href="#">自选</a>
+          <Link to="/market">自选</Link>
         )}
       </nav>
     </header>

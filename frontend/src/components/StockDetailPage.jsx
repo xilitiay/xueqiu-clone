@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getStock, getStockPosts, getQuote } from '../api/client.js'
+import { getStock, getStockPosts, getQuote, isInWatchlist, toggleWatchlist } from '../api/client.js'
 import { subscribeQuote } from '../api/wsClient.js'
 import PostCard from './PostCard.jsx'
 import Sparkline from './Sparkline.jsx'
@@ -11,11 +11,14 @@ export default function StockDetailPage() {
   const [stock, setStock] = useState(null)
   const [quote, setQuote] = useState(null)
   const [posts, setPosts] = useState([])
+  const [inWatch, setInWatch] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let alive = true
     let unsub = () => {}
+    isInWatchlist(symbol).then((v) => alive && setInWatch(v)).catch(() => {})
+
     Promise.all([getStock(symbol), getStockPosts(symbol, 0, 10)]).then(([s, p]) => {
       if (!alive) return
       setStock(s)
@@ -82,6 +85,12 @@ export default function StockDetailPage() {
             <div className={`big-price ${cls}`}>{stock.price}</div>
             <div className={`big-chg ${cls}`}>{fmtChange(pct)}</div>
             {quote?.time && <div className="meta" style={{ fontSize: 11 }}>行情时间 {quote.time}</div>}
+            <button
+              className={`watch-btn ${inWatch ? 'on' : ''}`}
+              onClick={() => toggleWatchlist(symbol).then(() => setInWatch((v) => !v)).catch(() => {})}
+            >
+              {inWatch ? '✓ 已自选' : '+ 加自选'}
+            </button>
           </div>
         </div>
 

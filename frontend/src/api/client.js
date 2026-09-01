@@ -347,3 +347,114 @@ export async function getQuotes(symbols) {
     }
   )
 }
+
+// ---------- 自选股 / 持仓（需登录；离线时回退 localStorage） ----------
+const WATCH_KEY = 'xq_watchlist'
+const POS_KEY = 'xq_positions'
+
+function localWatch() {
+  try { return JSON.parse(localStorage.getItem(WATCH_KEY) || '[]') } catch { return [] }
+}
+function saveLocalWatch(arr) {
+  if (typeof localStorage !== 'undefined') localStorage.setItem(WATCH_KEY, JSON.stringify(arr))
+}
+function localPositions() {
+  try { return JSON.parse(localStorage.getItem(POS_KEY) || '[]') } catch { return [] }
+}
+function saveLocalPositions(arr) {
+  if (typeof localStorage !== 'undefined') localStorage.setItem(POS_KEY, JSON.stringify(arr))
+}
+
+/** 我的自选（实时行情数组，保持自选顺序） */
+export async function getWatchlist() {
+  return withFallback(
+    async () => (await axios.get(`${API}/watchlist`)).data,
+    async () => {
+      const syms = localWatch()
+      if (!syms.length) return []
+      const map = await getQuotes(syms)
+      return syms.map((s) => map[s]).filter(Boolean)
+    }
+  )
+}
+
+/** 加入 / 取消自选；返回 { added } */
+export async function toggleWatchlist(symbol) {
+  return withFallback(
+    async () => {
+      await ensureAuth()
+      const { data } = await axios.post(`${API}/watchlist/${symbol.toUpperCase()}`)
+      return data
+    },
+    async () => {
+      const arr = localWatch()
+      const i = arr.indexOf(symbol)
+      if (i >= 0) { arr.splice(i, 1); saveLocalWatch(arr); return { added: false } }
+      arr.push(symbol); saveLocalWatch(arr); return { added: true }
+    }
+  )
+}
+
+/** 判断某 symbol 是否在自选（用于个股页按钮态） */
+export async function isInWatchlist(symbol) {
+  try {
+    const list = await getWatchlist()
+    return list.some((q) => q.symbol === symbol)
+  } catch {
+    return localWatch().includes(symbol)
+  }
+}
+
+/** 我的持仓（含实时盈亏） */
+export async function getPositions() {
+  return withFallback(
+    async () => (await axios.get(`${API}/positions`)).data,
+    async () => localPositions()
+  )
+}
+
+/** 保存 / 更新持仓；返回最新 PositionDTO（离线时用示例行情本地计算） */
+export async function savePosition({ symbol, shares, avgCost }) {
+  return withFallback(
+    async () => {
+      await ensureAuth()
+      const { data } = await axios.post(`${API}/positions`, {
+        symbol: symbol.toUpperCase(), shares, avgCost
+      })
+      return data
+    },
+    async () => {
+      const arr = localPositions()
+      let p = arr.find((x) => x.symbol === symbol)
+      if (!p) { p = { symbol }; arr.push(p) }
+      p.shares = shares; p.avgCost = avgCost
+      saveLocalPositions(arr)
+      const q = await getQuote(symbol)
+      const price = (q && q.price != null) ? Number(q.price) : Number(avgCost)
+      const sh = Number(shares), cost = Number(avgCost)
+      const costValue = cost * sh
+      const marketValue = price * sh
+      const pnl = marketValue - costValue
+      const pnlPercent = costValue ? (pnl * 100 / costValue) : 0
+      return {
+        id: null, symbol, name: q?.name || symbol, shares, avgCost,
+        price, changePercent: q?.changePercent ?? null,
+        marketValue, costValue, pnl, pnlPercent, market: null
+      }
+    }
+  )
+}
+
+/** 移除持仓 */
+export async function removePosition(symbol) {
+  return withFallback(
+    async () => {
+      await axios.delete(`${API}/positions/${symbol.toUpperCase()}`)
+      return { removed: true }
+    },
+    async () => {
+      saveLocalPositions(localPositions().filter((x) => x.symbol !== symbol))
+      return { removed: true }
+    }
+  )
+}
