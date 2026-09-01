@@ -22,6 +22,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     /** 某位用户发布的帖子（按时间倒序） */
     List<Post> findByAuthorIdOrderByCreatedAtDesc(@Param("authorId") Long authorId, Sort sort);
 
+    /** 关注流：作者 id 在给定集合内的帖子（按时间倒序分页） */
+    Page<Post> findByAuthorIdInOrderByCreatedAtDesc(@Param("authorIds") List<Long> authorIds, Pageable pageable);
+
     /** 搜索：内容包含关键字（忽略大小写），按时间倒序 */
     Page<Post> findByContentContainingIgnoreCaseOrderByCreatedAtDesc(String keyword, Pageable pageable);
 }

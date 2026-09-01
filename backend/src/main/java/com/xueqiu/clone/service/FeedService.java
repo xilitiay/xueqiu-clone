@@ -10,6 +10,7 @@ import com.xueqiu.clone.repository.PostLikeRepository;
 import com.xueqiu.clone.repository.PostRepository;
 import com.xueqiu.clone.repository.StockRepository;
 import com.xueqiu.clone.repository.UserRepository;
+import com.xueqiu.clone.service.UserService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +25,7 @@ import java.util.List;
  * 信息流服务。
  * 点赞状态按用户持久化（PostLike 表），likeCount 作为非规范化总计数维护；
  * 未登录（userId 为 null）时一律视为未点赞。
+ * 信息流支持 type=all（全部）与 type=following（仅关注的人，需登录）。
  */
 @Service
 public class FeedService {
@@ -32,17 +34,30 @@ public class FeedService {
     private final UserRepository userRepository;
     private final StockRepository stockRepository;
     private final PostLikeRepository postLikeRepository;
+    private final UserService userService;
 
     public FeedService(PostRepository postRepository, UserRepository userRepository,
-                       StockRepository stockRepository, PostLikeRepository postLikeRepository) {
+                       StockRepository stockRepository, PostLikeRepository postLikeRepository,
+                       UserService userService) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.stockRepository = stockRepository;
         this.postLikeRepository = postLikeRepository;
+        this.userService = userService;
     }
 
     public Page<PostDTO> getFeed(int page, int size, Long userId) {
+        return getFeed(page, size, userId, "all");
+    }
+
+    public Page<PostDTO> getFeed(int page, int size, Long userId, String type) {
         Pageable pageable = PageRequest.of(page, size);
+        if ("following".equalsIgnoreCase(type) && userId != null) {
+            List<Long> ids = userService.followingIds(userId);
+            if (ids.isEmpty()) return Page.empty(pageable);
+            return postRepository.findByAuthorIdInOrderByCreatedAtDesc(ids, pageable)
+                    .map(p -> PostDTO.from(p, liked(p.getId(), userId)));
+        }
         return postRepository.findAllByOrderByCreatedAtDesc(pageable)
                 .map(p -> PostDTO.from(p, liked(p.getId(), userId)));
     }

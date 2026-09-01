@@ -6,6 +6,14 @@ const MOCK = '/mock'
 const TOKEN_KEY = 'xq_token'
 // token 模块级缓存；浏览器环境从 localStorage 恢复，确保刷新后登录态不丢失
 let TOKEN = (typeof localStorage !== 'undefined' && localStorage.getItem(TOKEN_KEY)) || ''
+// 当前登录用户（演示模式自动以 demo 登录后填充）；用于「关注自己的主页」判断、关注流等
+let CURRENT_USER = null
+// 演示（Mock）模式下本地维护的关注集合，使关注按钮在无后端时也能交互
+const localFollowSet = new Set()
+
+export function getCurrentUser() {
+  return CURRENT_USER
+}
 
 // 请求拦截器：自动附加 JWT
 axios.interceptors.request.use((config) => {
@@ -21,14 +29,21 @@ axios.interceptors.request.use((config) => {
  * 后端不可用时静默失败，调用方会自动回退到 Mock 数据。
  */
 export async function ensureAuth() {
-  if (TOKEN) return
+  if (TOKEN && CURRENT_USER) return CURRENT_USER
   try {
     const { data } = await axios.post(`${API}/auth/login`, { username: 'demo', password: '123456' })
     TOKEN = data.token
+    CURRENT_USER = { id: data.id, username: data.username, name: data.name }
     if (typeof localStorage !== 'undefined') localStorage.setItem(TOKEN_KEY, TOKEN)
   } catch (e) {
     /* 后端离线或登录失败：走 Mock 模式，写操作仅本地乐观更新 */
   }
+  return CURRENT_USER
+}
+
+/** 应用启动时调用：确保登录态就绪，供 Header / 关注按钮 / 关注流使用 */
+export async function initAuth() {
+  return ensureAuth()
 }
 
 const DEMO_AUTHOR = { id: -1, name: '我（演示）', avatarColor: '#E64340', followers: 0 }
@@ -46,11 +61,12 @@ async function withFallback(backendFn, mockFn) {
   }
 }
 
-/** 首页信息流（返回 PostDTO 数组）。Mock 模式按页切片以模拟分页 */
-export async function getFeed(page = 0, size = 10) {
+/** 首页信息流（返回 PostDTO 数组）。type=all 全部；type=following 仅关注的人（需登录）。
+ * Mock 模式按页切片以模拟分页（关注流在无后端时回退为全部，演示用）。 */
+export async function getFeed(page = 0, size = 10, type = 'all') {
   return withFallback(
     async () => {
-      const { data } = await axios.get(`${API}/feed`, { params: { page, size } })
+      const { data } = await axios.get(`${API}/feed`, { params: { page, size, type } })
       return data.content
     },
     async () => {
@@ -70,6 +86,53 @@ export async function toggleLike(id, currentLiked, currentCount) {
       likeCount: currentCount + (currentLiked ? -1 : 1)
     })
   )
+}
+
+/** 关注 / 取消关注。后端返回 { following }；Mock 模式本地切换关注集合 */
+export async function followUser(id) {
+  return withFallback(
+    async () => {
+      await ensureAuth()
+      const { data } = await axios.post(`${API}/users/${id}/follow`)
+      return data
+    },
+    async () => {
+      if (localFollowSet.has(String(id))) localFollowSet.delete(String(id))
+      else localFollowSet.add(String(id))
+      return { following: localFollowSet.has(String(id)) }
+    }
+  )
+}
+
+/** 某用户关注的人列表（UserDTO 数组） */
+export async function getFollowing(id) {
+  return withFallback(
+    async () => (await axios.get(`${API}/users/${id}/following`)).data,
+    async () => mockAuthors(id)
+  )
+}
+
+/** 某用户的粉丝列表（UserDTO 数组） */
+export async function getFollowers(id) {
+  return withFallback(
+    async () => (await axios.get(`${API}/users/${id}/followers`)).data,
+    async () => mockAuthors(id)
+  )
+}
+
+/** Mock 回退：从 feed.json 去重出作者列表（排除自己），用于关注/粉丝列表演示 */
+async function mockAuthors(excludeId) {
+  const { data } = await axios.get(`${MOCK}/feed.json`)
+  const seen = new Set()
+  const list = []
+  data.forEach((p) => {
+    const a = p.author
+    if (a && !seen.has(a.id) && String(a.id) !== String(excludeId)) {
+      seen.add(a.id)
+      list.push({ id: a.id, name: a.name, username: a.username || ('user' + a.id), avatarColor: a.avatarColor, bio: a.bio || '' })
+    }
+  })
+  return list
 }
 
 /** 发帖（需登录）。后端返回新建 PostDTO；Mock 模式本地构造一条 */
@@ -223,13 +286,16 @@ export async function getUser(id) {
     async () => {
       const { data } = await axios.get(`${MOCK}/feed.json`)
       const posts = data.filter((p) => String(p.author?.id) === String(id))
-      const author = posts[0]?.author || { id: Number(id), name: '球友' + id, avatarColor: '#E64340', followers: 0 }
+      const author = posts[0]?.author || { id: Number(id), name: '球友' + id, avatarColor: '#E64340', followers: 0, username: 'user' + id }
       return {
         id: Number(id),
         name: author.name,
+        username: author.username || ('user' + id),
         avatarColor: author.avatarColor,
         bio: author.bio || '',
         followers: author.followers || 0,
+        following: 0,
+        isFollowing: false,
         postCount: posts.length,
         posts
       }

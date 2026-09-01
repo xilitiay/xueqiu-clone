@@ -29,12 +29,14 @@ public class FeedController {
         this.userService = userService;
     }
 
-    /** 首页信息流（未登录也能看；登录后会带「当前用户是否点赞」状态） */
+    /** 首页信息流（未登录也能看；登录后会带「当前用户是否点赞」状态）。
+     *  type=all 全部；type=following 仅关注的人（需登录，否则返回空）。 */
     @GetMapping("/feed")
     public Page<PostDTO> feed(@RequestParam(defaultValue = "0") int page,
                               @RequestParam(defaultValue = "10") int size,
+                              @RequestParam(defaultValue = "all") String type,
                               Authentication authentication) {
-        return feedService.getFeed(page, size, currentUserId(authentication));
+        return feedService.getFeed(page, size, currentUserId(authentication), type);
     }
 
     /** 发帖（需登录）。作者由当前 JWT 解析 */

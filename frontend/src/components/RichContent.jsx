@@ -1,11 +1,9 @@
 import { Link } from 'react-router-dom'
 
-// 匹配正文中的 $代码 / $名称（雪球标志性 cashtag 写法）
-const CASHTAG_RE = /\$([^\s$%，。、！？；：,!?;:]+)/g
-
 /**
- * 富文本正文：把 $贵州茅台 / $SH600519 这类 cashtag 渲染为可点击的个股链接。
- * 仅当 token 能匹配到该帖关联的股票时才跳转，否则仅做高亮样式。
+ * 富文本正文解析：
+ * - $代码 / $名称（cashtag）→ 可点击个股链接（能匹配到关联股票才跳转，否则仅高亮）
+ * - @用户名（mention）→ 可点击用户主页链接（/user/:username）
  * 换行与纯文本段原样保留（依赖祖先元素的 white-space: pre-wrap）。
  */
 export default function RichContent({ text, stocks = [] }) {
@@ -16,18 +14,29 @@ export default function RichContent({ text, stocks = [] }) {
     if (s.symbol) bySymbol[s.symbol] = s.symbol
   })
 
-  const parts = (text || '').split(CASHTAG_RE)
-  return (
-    <span className="rich-content">
-      {parts.map((seg, i) => {
-        if (i % 2 === 0) return <span key={i}>{seg}</span>
-        const sym = byName[seg] || bySymbol[seg] || null
-        return sym ? (
-          <Link key={i} to={`/stock/${sym}`} className="cashtag">${seg}</Link>
-        ) : (
-          <span key={i} className="cashtag">${seg}</span>
-        )
-      })}
-    </span>
-  )
+  const re = /\$([^\s$%，。、！？；：,!?;:]+)|@([A-Za-z0-9_]+)/g
+  const nodes = []
+  let last = 0
+  let m
+  let key = 0
+  const src = text || ''
+  while ((m = re.exec(src))) {
+    if (m.index > last) nodes.push(<span key={key++}>{src.slice(last, m.index)}</span>)
+    if (m[1] != null) {
+      // cashtag
+      const seg = m[1]
+      const sym = byName[seg] || bySymbol[seg] || null
+      nodes.push(sym
+        ? <Link key={key++} to={`/stock/${sym}`} className="cashtag">${seg}</Link>
+        : <span key={key++} className="cashtag">${seg}</span>)
+    } else {
+      // @mention
+      const name = m[2]
+      nodes.push(<Link key={key++} to={`/user/${name}`} className="mention">@{name}</Link>)
+    }
+    last = re.lastIndex
+  }
+  if (last < src.length) nodes.push(<span key={key++}>{src.slice(last)}</span>)
+
+  return <span className="rich-content">{nodes}</span>
 }

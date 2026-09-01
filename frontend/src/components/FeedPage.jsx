@@ -31,22 +31,29 @@ export default function FeedPage() {
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [feedType, setFeedType] = useState('all') // all | following
   const [draft, setDraft] = useState('')
   const [posting, setPosting] = useState(false)
   const sentinelRef = useRef(null)
 
-  // 首屏加载
+  // 热门股票（与信息流类型无关，仅加载一次）
+  useEffect(() => {
+    getHotStocks(8).then(setHot).catch(() => {})
+  }, [])
+
+  // 信息流首屏：随类型（全部 / 关注）切换重置
   useEffect(() => {
     let alive = true
-    Promise.all([getFeed(0, PAGE_SIZE), getHotStocks(8)]).then(([f, h]) => {
+    setLoading(true)
+    setPage(0)
+    getFeed(0, PAGE_SIZE, feedType).then((f) => {
       if (!alive) return
       setPosts(f)
-      setHot(h)
       setHasMore(f.length === PAGE_SIZE)
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
     return () => { alive = false }
-  }, [])
+  }, [feedType])
 
   const linkedStocks = hot.length ? extractSymbols(draft, hot) : []
 
@@ -69,13 +76,13 @@ export default function FeedPage() {
     if (loadingMore || !hasMore) return
     setLoadingMore(true)
     const next = page + 1
-    getFeed(next, PAGE_SIZE).then((more) => {
+    getFeed(next, PAGE_SIZE, feedType).then((more) => {
       setPosts((prev) => [...prev, ...more])
       setPage(next)
       setHasMore(more.length === PAGE_SIZE)
       setLoadingMore(false)
     }).catch(() => setLoadingMore(false))
-  }, [page, loadingMore, hasMore])
+  }, [page, loadingMore, hasMore, feedType])
 
   // 哨兵进入视口即加载（提前 200px 触发）
   useEffect(() => {
@@ -93,6 +100,12 @@ export default function FeedPage() {
     <>
       <div>
         <div className="banner">演示数据 · 内容为示意性市场评论，非真实行情，不构成投资建议</div>
+
+        {/* 信息流类型切换：全部 / 关注 */}
+        <div className="feed-tabs">
+          <button className={feedType === 'all' ? 'feed-tab active' : 'feed-tab'} onClick={() => setFeedType('all')}>全部</button>
+          <button className={feedType === 'following' ? 'feed-tab active' : 'feed-tab'} onClick={() => setFeedType('following')}>关注</button>
+        </div>
 
         {/* 发帖框 */}
         <div className="card compose">
@@ -120,6 +133,14 @@ export default function FeedPage() {
 
         {loading ? <FeedSkeleton /> :
           posts.map((p) => <PostCard key={p.id} post={p} />)}
+
+        {!loading && posts.length === 0 && (
+          <div className="card empty-hint">
+            {feedType === 'following'
+              ? '关注流为空：登录后关注球友，这里会聚合他们的最新讨论（演示账号已自动登录）'
+              : '暂时还没有内容'}
+          </div>
+        )}
 
         {/* 无限滚动哨兵：进入视口自动加载下一页 */}
         {!loading && hasMore && (

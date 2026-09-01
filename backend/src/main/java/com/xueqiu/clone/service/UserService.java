@@ -5,9 +5,12 @@ import com.xueqiu.clone.dto.AuthRequest;
 import com.xueqiu.clone.dto.AuthResponse;
 import com.xueqiu.clone.dto.PostDTO;
 import com.xueqiu.clone.dto.RegisterRequest;
+import com.xueqiu.clone.dto.UserDTO;
 import com.xueqiu.clone.dto.UserProfileDTO;
+import com.xueqiu.clone.model.Follow;
 import com.xueqiu.clone.model.Post;
 import com.xueqiu.clone.model.User;
+import com.xueqiu.clone.repository.FollowRepository;
 import com.xueqiu.clone.repository.PostRepository;
 import com.xueqiu.clone.repository.UserRepository;
 import org.springframework.data.domain.Sort;
@@ -17,8 +20,9 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * 用户服务：主页资料、注册、登录、按用户名查询。
+ * 用户服务：主页资料、注册、登录、按用户名查询、关注关系。
  * 密码使用 BCrypt 哈希存储，令牌由 JwtUtil 签发。
+ * 关注关系（Follow 表）驱动粉丝/关注计数、关注流与「是否已关注」状态。
  */
 @Service
 public class UserService {
@@ -27,13 +31,15 @@ public class UserService {
     private final PostRepository postRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final FollowRepository followRepository;
 
     public UserService(UserRepository userRepository, PostRepository postRepository,
-                       PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+                       PasswordEncoder passwordEncoder, JwtUtil jwtUtil, FollowRepository followRepository) {
         this.userRepository = userRepository;
         this.postRepository = postRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.followRepository = followRepository;
     }
 
     /** 注册：用户名唯一，密码 BCrypt 哈希；注册成功直接返回登录令牌 */
@@ -70,8 +76,13 @@ public class UserService {
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + username));
     }
 
-    /** 用户主页：资料 + 其发布的帖子（按时间倒序） */
+    /** 用户主页：资料 + 其发布的帖子（按时间倒序）。无浏览者时 isFollowing=false */
     public UserProfileDTO getProfile(Long id) {
+        return getProfile(id, null);
+    }
+
+    /** 用户主页（带浏览者视角）：聚合真实粉丝/关注数，并计算 isFollowing */
+    public UserProfileDTO getProfile(Long id, Long viewerId) {
         User u = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + id));
         List<PostDTO> posts = postRepository
@@ -79,6 +90,63 @@ public class UserService {
                 .stream()
                 .map(p -> PostDTO.from(p, false))
                 .toList();
-        return UserProfileDTO.from(u, posts);
+        int followers = (int) followRepository.countByFollowingId(id);
+        int following = (int) followRepository.countByFollowerId(id);
+        boolean isFollowing = viewerId != null
+                && followRepository.existsByFollowerIdAndFollowingId(viewerId, id);
+        return UserProfileDTO.from(u, posts, followers, following, isFollowing);
+    }
+
+    /** 关注 / 取消关注（按用户幂等）。返回操作后的「是否关注」状态 */
+    public boolean toggleFollow(Long followerId, Long targetId) {
+        if (followerId.equals(targetId)) throw new IllegalArgumentException("不能关注自己");
+        User follower = userRepository.findById(followerId)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + followerId));
+        User target = userRepository.findById(targetId)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + targetId));
+        if (followRepository.existsByFollowerIdAndFollowingId(followerId, targetId)) {
+            followRepository.deleteByFollowerIdAndFollowingId(followerId, targetId);
+            return false;
+        }
+        followRepository.save(new Follow(follower, target));
+        return true;
+    }
+
+    /** 当前用户是否关注了 targetId */
+    public boolean isFollowing(Long followerId, Long targetId) {
+        if (followerId == null) return false;
+        return followRepository.existsByFollowerIdAndFollowingId(followerId, targetId);
+    }
+
+    /** 某用户关注的人（用于关注列表 / 关注流筛选） */
+    public List<Long> followingIds(Long viewerId) {
+        return followRepository.findByFollowerId(viewerId).stream()
+                .map(f -> f.getFollowing().getId())
+                .toList();
+    }
+
+    /** 关注列表（UserDTO） */
+    public List<UserDTO> listFollowing(Long id) {
+        return followRepository.findByFollowerId(id).stream()
+                .map(f -> UserDTO.from(f.getFollowing()))
+                .toList();
+    }
+
+    /** 粉丝列表（UserDTO） */
+    public List<UserDTO> listFollowers(Long id) {
+        return followRepository.findByFollowingId(id).stream()
+                .map(f -> UserDTO.from(f.getFollower()))
+                .toList();
+    }
+
+    /** 按 id 或用户名解析用户 id（支持 /user/:id 与 /user/:username 两种入口） */
+    public Long resolveUserId(String idOrName) {
+        try {
+            return Long.parseLong(idOrName);
+        } catch (NumberFormatException e) {
+            return userRepository.findByUsername(idOrName)
+                    .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + idOrName))
+                    .getId();
+        }
     }
 }

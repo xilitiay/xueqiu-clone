@@ -1,16 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getHotStocks } from '../api/client.js'
+import { getHotStocks, ensureAuth, getCurrentUser } from '../api/client.js'
 
 export default function Header() {
   const [all, setAll] = useState([])
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [me, setMe] = useState(getCurrentUser())
   const navigate = useNavigate()
   const wrapRef = useRef(null)
 
   useEffect(() => {
     getHotStocks(50).then(setAll).catch(() => {})
+    // 确保演示账号登录态就绪，便于显示「我的」入口与关注交互
+    ensureAuth().then(() => setMe(getCurrentUser())).catch(() => {})
   }, [])
 
   const results = query.trim()
@@ -66,7 +69,11 @@ export default function Header() {
       <nav className="nav">
         <Link to="/">首页</Link>
         <Link to="/market">行情</Link>
-        <a href="#">自选</a>
+        {me ? (
+          <Link to={`/user/${me.username}`}>我的</Link>
+        ) : (
+          <a href="#">自选</a>
+        )}
       </nav>
     </header>
   )

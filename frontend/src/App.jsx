@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Header from './components/Header.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
+import { initAuth } from './api/client.js'
 
 // 路由级代码分割：首屏只加载首页所需 JS，其余页面按需加载
 const FeedPage = lazy(() => import('./components/FeedPage.jsx'))
@@ -12,6 +13,9 @@ const MarketPage = lazy(() => import('./components/MarketPage.jsx'))
 const SearchPage = lazy(() => import('./components/SearchPage.jsx'))
 
 export default function App() {
+  // 启动即确保登录态（演示账号自动登录），供关注流 / 关注按钮 / 我的 入口使用
+  useEffect(() => { initAuth().catch(() => {}) }, [])
+
   return (
     <div className="app">
       <Header />

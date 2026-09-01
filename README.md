@@ -23,8 +23,8 @@
 ├── backend/          # Spring Boot 后端（Java）
 │   ├── pom.xml
 │   └── src/main/java/com/xueqiu/clone/
-│       ├── model/       实体：User / Stock / Post / Comment / PostLike / IndexDef
-│       ├── repository/  JPA 仓储（含 PostLikeRepository / IndexDefRepository）
+│       ├── model/       实体：User / Stock / Post / Comment / PostLike / IndexDef / Follow
+│       ├── repository/  JPA 仓储（含 PostLikeRepository / IndexDefRepository / FollowRepository）
 │       ├── service/     FeedService / StockService / UserService / QuoteService / QuotePushScheduler
 │       ├── controller/  FeedController / StockController / UserController / QuoteController / AuthController / SearchController / IndexDefController
 │       ├── dto/         响应体（避免直接暴露实体）
@@ -54,6 +54,11 @@ mvn spring-boot:run
 #   PUT  http://localhost:8080/api/index-defs/{id}       # 修改（重排序/启停/改名）
 #   DELETE http://localhost:8080/api/index-defs/{id}     # 删除
 #   WebSocket: ws://localhost:8080/ws  (SockJS+STOMP，订阅 /topic/quotes、/topic/indices 收实时行情)
+#   GET  http://localhost:8080/api/users/xilitiay        # 用户主页（支持 id 或 username）
+#   POST http://localhost:8080/api/users/2/follow         # 关注/取消关注（需 token，幂等）
+#   GET  http://localhost:8080/api/users/2/following      # 关注列表
+#   GET  http://localhost:8080/api/users/2/followers      # 粉丝列表
+#   GET  http://localhost:8080/api/feed?type=following     # 关注流（需登录，仅聚合已关注用户）
 #   GET  http://localhost:8080/api/search?q=茅台&type=all  # 搜索
 #   POST http://localhost:8080/api/auth/register         # 注册（body: {username,name,password}）
 #   POST http://localhost:8080/api/auth/login            # 登录（body: {username,password}）
@@ -96,6 +101,10 @@ npm run build && npm run preview
   提供 `IndexDefController` 进行增删改查，数据源不可达时回退内置 Mock
 - **WebSocket 实时推送行情**：后端 `/ws`（SockJS+STOMP）每 5 秒向 `/topic/quotes`、`/topic/indices`
   推送实时行情，行情中心、侧栏指数、个股详情页订阅后即时跳动，无需轮询
+- **社交关注关系**：关注/取消关注按用户落库（Follow 表，唯一约束防重复）；用户主页展示真实粉丝/关注数
+  与「是否已关注」状态；支持按 id 或用户名访问主页（`/user/:id`、`/user/:username`）
+- **关注流**：首页信息流新增「关注」Tab，仅聚合已关注用户的讨论（需登录）；未关注任何人时给出空态引导
+- **@提及解析**：正文中的 `@用户名` 渲染为可点击链接，跳转对应用户主页（与 `$代码` cashtag 并列）
 - 路由：首页 `/`、行情 `/market`、个股 `/stock/:symbol`、帖子 `/post/:id`、用户 `/user/:id`、搜索 `/search`
 
 ### 实时行情接入（可配置行情 Key）
