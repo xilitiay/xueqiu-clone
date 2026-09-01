@@ -1,0 +1,19 @@
+# 依赖与构建产物
+node_modules/
+dist/
+frontend/dist/
+backend/target/
+*.class
+
+# 本地内存/工作目录（非项目源码）
+.workbuddy/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+*.iml
+.DS_Store
+
+# 日志
+*.log
+npm-debug.log*

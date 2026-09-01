@@ -1,0 +1,75 @@
+[
+  {
+    "id": 1,
+    "author": { "id": 6, "name": "宏观笔记", "avatarColor": "#16A085", "bio": "读宏观数据，看资产价格", "followers": 15700 },
+    "content": "7月社融数据略超预期，流动性边际改善。从历史经验看，宽货币向宽信用的传导仍需时间，权益资产短期更看风险偏好。",
+    "createdAt": "2026-08-18T11:45:00",
+    "likeCount": 214, "commentCount": 33, "liked": false,
+    "stocks": [
+      { "symbol": "SH601318", "name": "中国平安", "changePercent": 0.62 },
+      { "symbol": "SH600036", "name": "招商银行", "changePercent": -0.45 }
+    ]
+  },
+  {
+    "id": 2,
+    "author": { "id": 1, "name": "价值发现者", "avatarColor": "#E64340", "bio": "长期主义，低估是朋友", "followers": 12800 },
+    "content": "茅台这轮回调后，按今年的预期净利测算，动态市盈率又回到相对舒服的区间。还是那句话：好生意，等好价格。",
+    "createdAt": "2026-08-18T09:40:00",
+    "likeCount": 532, "commentCount": 88, "liked": false,
+    "stocks": [ { "symbol": "SH600519", "name": "贵州茅台", "changePercent": 1.85 } ]
+  },
+  {
+    "id": 3,
+    "author": { "id": 4, "name": "科技观察", "avatarColor": "#9B59B6", "bio": "跟踪半导体与AI产业链", "followers": 21000 },
+    "content": "英伟达下一代算力芯片需求依旧旺盛，产业链订单能见度较高。国产替代方向上，先进封装和HBM值得跟踪。",
+    "createdAt": "2026-08-18T08:30:00",
+    "likeCount": 891, "commentCount": 142, "liked": false,
+    "stocks": [ { "symbol": "NVDA", "name": "英伟达", "changePercent": 4.40 } ]
+  },
+  {
+    "id": 4,
+    "author": { "id": 2, "name": "趋势为王", "avatarColor": "#1AAD19", "bio": "顺势而为，不预测只跟随", "followers": 8600 },
+    "content": "比亚迪海外交付节奏加快，月销结构里出海占比在提升。趋势没坏，但短期涨幅不小，不追高只低吸。",
+    "createdAt": "2026-08-18T06:20:00",
+    "likeCount": 376, "commentCount": 51, "liked": false,
+    "stocks": [ { "symbol": "SZ002594", "name": "比亚迪", "changePercent": 3.12 } ]
+  },
+  {
+    "id": 5,
+    "author": { "id": 3, "name": "稳健派老张", "avatarColor": "#3B7CFF", "bio": "分散配置，控制回撤", "followers": 5300 },
+    "content": "我的组合里银行+保险压舱，进攻仓位给到电池和半导体。今年目标不是跑赢指数多少，而是把回撤控制在15%以内。",
+    "createdAt": "2026-08-18T04:10:00",
+    "likeCount": 188, "commentCount": 27, "liked": false,
+    "stocks": [
+      { "symbol": "SZ300750", "name": "宁德时代", "changePercent": -2.30 },
+      { "symbol": "SH601318", "name": "中国平安", "changePercent": 0.62 }
+    ]
+  },
+  {
+    "id": 6,
+    "author": { "id": 5, "name": "小白学投资", "avatarColor": "#F39C12", "bio": "边学边记，欢迎指教", "followers": 920 },
+    "content": "今天第一次搞懂了「市盈率」和「市净率」的区别，记一笔：PE看盈利、PB看净资产。有没有前辈推荐入门书？",
+    "createdAt": "2026-08-18T02:05:00",
+    "likeCount": 96, "commentCount": 64, "liked": false,
+    "stocks": []
+  },
+  {
+    "id": 7,
+    "author": { "id": 6, "name": "宏观笔记", "avatarColor": "#16A085", "bio": "读宏观数据，看资产价格", "followers": 15700 },
+    "content": "美债收益率回落对成长股估值友好，科技龙头的分母端压力缓解。但盈利端还是要逐个看季报。",
+    "createdAt": "2026-08-17T23:00:00",
+    "likeCount": 421, "commentCount": 39, "liked": false,
+    "stocks": [
+      { "symbol": "AAPL", "name": "苹果", "changePercent": 0.95 },
+      { "symbol": "NVDA", "name": "英伟达", "changePercent": 4.40 }
+    ]
+  },
+  {
+    "id": 8,
+    "author": { "id": 2, "name": "趋势为王", "avatarColor": "#1AAD19", "bio": "顺势而为，不预测只跟随", "followers": 8600 },
+    "content": "腾讯这波回购很稳，每天雷打不动。对股东友好这事儿，长期会反映在估值里。",
+    "createdAt": "2026-08-17T19:30:00",
+    "likeCount": 503, "commentCount": 45, "liked": false,
+    "stocks": [ { "symbol": "HK00700", "name": "腾讯控股", "changePercent": 2.05 } ]
+  }
+]

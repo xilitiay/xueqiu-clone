@@ -1,0 +1,48 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: xueqiu-clone
+  # 雪球生产使用 MySQL + Redis；演示用 H2 内存库，重启即重置
+  datasource:
+    url: jdbc:h2:mem:xueqiu;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+    open-in-view: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jackson:
+    # 日期序列化为 ISO-8601 字符串，前端更易处理
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+# 前端开发服务器地址（Vite 默认 5173），用于跨域放行
+app:
+  cors:
+    allowed-origins: "http://localhost:5173,http://127.0.0.1:5173"
+  # JWT 配置：生产环境务必更换 secret 为足够长（>=32字节）的随机串
+  jwt:
+    secret: "xueqiu-clone-demo-secret-key-please-change-in-prod-1234567890"
+    expiration-ms: 86400000   # token 有效期（毫秒），默认 24h
+  # 行情源配置：provider=tencent 使用腾讯 gtimg 公开行情（免 key）；
+  # 若要接入你自己的行情 Key，将 provider 改为 json 并填入 base-url 与 api-key，
+  # 后端会把 api-key 作为 Bearer Token 注入请求头（详见 README）。
+  quote:
+    provider: tencent
+    base-url: "https://qt.gtimg.cn/q="
+    api-key: ""
+    indices: "SH000001,SZ399001,SZ399006,SH000300,HKHSI,USSPX"
+    # WebSocket 实时推送推送的个股清单（/topic/quotes）。可按需增减，逗号分隔
+    ws-symbols: "SH600519,SZ300750,SH601318,SH600036,SZ000858"

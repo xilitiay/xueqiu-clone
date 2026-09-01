@@ -1,0 +1,7 @@
+[
+  { "name": "上证指数", "code": "SH000001", "value": "3274.86", "changePercent": 0.62 },
+  { "name": "深证成指", "code": "SZ399001", "value": "10458.23", "changePercent": -0.38 },
+  { "name": "创业板指", "code": "SZ399006", "value": "2156.40", "changePercent": 1.15 },
+  { "name": "恒生指数", "code": "HKHSI", "value": "17620.15", "changePercent": 0.94 },
+  { "name": "标普500", "code": "SPX", "value": "5431.60", "changePercent": -0.21 }
+]
