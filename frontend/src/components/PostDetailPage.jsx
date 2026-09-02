@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getPost, toggleLike } from '../api/client.js'
+import { getPost, toggleLike, toggleFavorite } from '../api/client.js'
 import CommentList from './CommentList.jsx'
 import RichContent from './RichContent.jsx'
 import { timeAgo, fmtChange } from './format.js'
@@ -11,6 +11,7 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
+  const [fav, setFav] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -19,6 +20,7 @@ export default function PostDetailPage() {
       setPost(p)
       setLiked(!!p.liked)
       setLikeCount(p.likeCount || 0)
+      setFav(!!p.favorited)
       setLoading(false)
     }).catch(() => setLoading(false))
     return () => { alive = false }
@@ -49,6 +51,15 @@ export default function PostDetailPage() {
       const res = await toggleLike(post.id, cur, curCount)
       setLiked(!!res.liked)
       setLikeCount(res.likeCount)
+    } catch (e) { /* ignore */ }
+  }
+
+  const onFav = async () => {
+    const cur = fav
+    setFav(!cur)
+    try {
+      const res = await toggleFavorite(post.id)
+      setFav(!!res.favorited)
     } catch (e) { /* ignore */ }
   }
 
@@ -86,7 +97,7 @@ export default function PostDetailPage() {
         <div className="actions">
           <button className={liked ? 'liked' : ''} onClick={onLike}>♥ {likeCount}</button>
           <span>💬 {post.commentCount || 0}</span>
-          <button>↗ 转发</button>
+          <button className={fav ? 'faved' : ''} onClick={onFav}>{fav ? '★ 已收藏' : '☆ 收藏'}</button>
         </div>
 
         <CommentList postId={post.id} />

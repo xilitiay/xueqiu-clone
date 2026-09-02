@@ -105,6 +105,7 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 4px;
 }
 .post .actions button.liked { color: var(--xq-red); }
+.post .actions button.faved { color: #E6A23C; }
 
 /* 侧栏 */
 .side .card h3 { margin: 0 0 10px; font-size: 14px; }
@@ -390,4 +391,54 @@ a { color: inherit; text-decoration: none; }
   .pos-table { overflow-x: auto; }
   .prow { min-width: 640px; }
 }
+
+/* 嵌套评论：顶层分组 + 缩进回复 */
+.comment-group { border-bottom: 1px solid var(--border); }
+.comment-group:last-child { border-bottom: none; }
+.comment { padding: 8px 0; }
+.comment .c-head { font-size: 13px; }
+.comment .c-content { margin: 4px 0 2px; font-size: 14px; line-height: 1.6; word-break: break-word; }
+.c-actions { display: flex; gap: 16px; }
+.c-actions button {
+  background: none; border: none; color: var(--text-sub);
+  cursor: pointer; font-size: 12px; padding: 0;
+}
+.c-actions button.liked { color: var(--xq-red); }
+.replies {
+  margin: 0 0 8px 14px; padding-left: 12px;
+  border-left: 2px solid var(--border);
+}
+.comment.reply { padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.comment.reply:last-child { border-bottom: none; }
+.reply-form { margin: 6px 0 4px; }
+
+/* 通知铃铛与下拉 */
+.notif-wrap { position: relative; display: inline-flex; }
+.notif-btn {
+  background: none; border: none; cursor: pointer; font-size: 16px;
+  position: relative; padding: 0 4px; color: var(--text);
+}
+.notif-badge {
+  position: absolute; top: -6px; right: -6px;
+  background: var(--xq-red); color: #fff; border-radius: 9px;
+  font-size: 10px; line-height: 16px; min-width: 16px; padding: 0 4px; text-align: center;
+}
+.notif-dropdown {
+  position: absolute; top: 30px; right: 0; z-index: 40;
+  width: 300px; max-height: 360px; overflow-y: auto;
+  background: #fff; border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .1);
+}
+.notif-title { padding: 10px 12px; font-weight: 700; font-size: 14px; border-bottom: 1px solid var(--border); }
+.notif-empty { padding: 16px; color: var(--text-sub); font-size: 13px; text-align: center; }
+.notif-item {
+  display: flex; gap: 8px; padding: 10px 12px;
+  border-bottom: 1px solid var(--border); color: var(--text); text-decoration: none;
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background: #fafafa; }
+.notif-item.unread { background: #fff8f8; }
+.notif-icon { flex-shrink: 0; font-size: 13px; }
+.notif-text { font-size: 13px; line-height: 1.5; }
+.notif-time { display: block; color: var(--text-sub); font-size: 11px; font-style: normal; margin-top: 2px; }
 

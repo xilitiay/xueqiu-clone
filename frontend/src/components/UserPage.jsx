@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getUser, getFollowers, getFollowing, getCurrentUser } from '../api/client.js'
+import { getUser, getFollowers, getFollowing, getFavorites, getCurrentUser } from '../api/client.js'
 import PostCard from './PostCard.jsx'
 import FollowButton from './FollowButton.jsx'
 import { timeAgo } from './format.js'
@@ -42,12 +42,12 @@ export default function UserPage() {
     return () => { alive = false }
   }, [id])
 
-  // 切换「关注 / 粉丝」时加载列表
+  // 切换「关注 / 粉丝 / 收藏」时加载列表（收藏仅本人可见）
   useEffect(() => {
     if (tab === 'posts' || !user) { setList([]); return }
     let alive = true
     setListLoading(true)
-    const fn = tab === 'following' ? getFollowing : getFollowers
+    const fn = tab === 'following' ? getFollowing : tab === 'favorites' ? getFavorites : getFollowers
     fn(user.id).then((l) => { if (alive) setList(l) }).catch(() => {}).finally(() => {
       if (alive) setListLoading(false)
     })
@@ -81,6 +81,9 @@ export default function UserPage() {
           <button className={tab === 'posts' ? 'tab active' : 'tab'} onClick={() => setTab('posts')}>讨论</button>
           <button className={tab === 'following' ? 'tab active' : 'tab'} onClick={() => setTab('following')}>关注</button>
           <button className={tab === 'followers' ? 'tab active' : 'tab'} onClick={() => setTab('followers')}>粉丝</button>
+          {isSelf && (
+            <button className={tab === 'favorites' ? 'tab active' : 'tab'} onClick={() => setTab('favorites')}>收藏</button>
+          )}
         </div>
 
         {tab === 'posts' && (
@@ -91,9 +94,17 @@ export default function UserPage() {
           ) : <div className="meta">该用户还没有发布帖子</div>
         )}
 
-        {tab !== 'posts' && (
+        {tab === 'favorites' && (
           listLoading ? <div className="meta">加载中…</div>
-            : list.length === 0 ? <div className="meta">暂无{user.following}数据</div>
+            : list.length === 0 ? <div className="meta">还没有收藏任何帖子</div>
+              : list.map((p) => (
+                <PostCard key={p.id} post={{ ...p, favorited: true, createdAt: p.createdAt || new Date().toISOString() }} />
+              ))
+        )}
+
+        {tab !== 'posts' && tab !== 'favorites' && (
+          listLoading ? <div className="meta">加载中…</div>
+            : list.length === 0 ? <div className="meta">暂无数据</div>
               : list.map((u) => <UserRow key={u.id} u={u} />)
         )}
       </div>

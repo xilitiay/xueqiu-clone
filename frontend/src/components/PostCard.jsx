@@ -1,15 +1,20 @@
-import { memo, useState } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { timeAgo, fmtChange } from './format.js'
 import CommentList from './CommentList.jsx'
 import RichContent from './RichContent.jsx'
-import { toggleLike } from '../api/client.js'
+import { toggleLike, toggleFavorite } from '../api/client.js'
 
 function PostCard({ post }) {
   const [liked, setLiked] = useState(!!post.liked)
   const [likeCount, setLikeCount] = useState(post.likeCount || 0)
+  const [fav, setFav] = useState(!!post.favorited)
   const [showComments, setShowComments] = useState(false)
   const navigate = useNavigate()
+
+  // 服务端返回的互动态变化时同步本地状态（如重新拉取信息流后）
+  useEffect(() => { setLiked(!!post.liked); setLikeCount(post.likeCount || 0) }, [post.liked, post.likeCount])
+  useEffect(() => { setFav(!!post.favorited) }, [post.favorited])
 
   const onLike = async () => {
     const cur = liked
@@ -21,6 +26,15 @@ function PostCard({ post }) {
       const res = await toggleLike(post.id, cur, curCount)
       setLiked(!!res.liked)
       setLikeCount(res.likeCount)
+    } catch (e) { /* 忽略 */ }
+  }
+
+  const onFav = async () => {
+    const cur = fav
+    setFav(!cur)
+    try {
+      const res = await toggleFavorite(post.id)
+      setFav(!!res.favorited)
     } catch (e) { /* 忽略 */ }
   }
 
@@ -55,7 +69,7 @@ function PostCard({ post }) {
       <div className="actions">
         <button className={liked ? 'liked' : ''} onClick={onLike}>♥ {likeCount}</button>
         <button onClick={() => setShowComments((v) => !v)}>💬 {post.commentCount || 0}</button>
-        <button>↗ 转发</button>
+        <button className={fav ? 'faved' : ''} onClick={onFav}>{fav ? '★ 已收藏' : '☆ 收藏'}</button>
       </div>
 
       {showComments && <CommentList postId={post.id} />}

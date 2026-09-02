@@ -10,6 +10,7 @@ import com.xueqiu.clone.dto.UserProfileDTO;
 import com.xueqiu.clone.model.Follow;
 import com.xueqiu.clone.model.Post;
 import com.xueqiu.clone.model.User;
+import com.xueqiu.clone.repository.FavoriteRepository;
 import com.xueqiu.clone.repository.FollowRepository;
 import com.xueqiu.clone.repository.PostRepository;
 import com.xueqiu.clone.repository.UserRepository;
@@ -18,11 +19,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
- * 用户服务：主页资料、注册、登录、按用户名查询、关注关系。
+ * 用户服务：主页资料、注册、登录、按用户名查询、关注关系、收藏列表。
  * 密码使用 BCrypt 哈希存储，令牌由 JwtUtil 签发。
- * 关注关系（Follow 表）驱动粉丝/关注计数、关注流与「是否已关注」状态。
+ * 关注关系（Follow 表）驱动粉丝/关注计数、关注流与「是否已关注」状态；被关注时生成通知。
  */
 @Service
 public class UserService {
@@ -32,14 +34,19 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final FollowRepository followRepository;
+    private final FavoriteRepository favoriteRepository;
+    private final NotificationService notificationService;
 
     public UserService(UserRepository userRepository, PostRepository postRepository,
-                       PasswordEncoder passwordEncoder, JwtUtil jwtUtil, FollowRepository followRepository) {
+                       PasswordEncoder passwordEncoder, JwtUtil jwtUtil, FollowRepository followRepository,
+                       FavoriteRepository favoriteRepository, NotificationService notificationService) {
         this.userRepository = userRepository;
         this.postRepository = postRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.followRepository = followRepository;
+        this.favoriteRepository = favoriteRepository;
+        this.notificationService = notificationService;
     }
 
     /** 注册：用户名唯一，密码 BCrypt 哈希；注册成功直接返回登录令牌 */
@@ -97,7 +104,7 @@ public class UserService {
         return UserProfileDTO.from(u, posts, followers, following, isFollowing);
     }
 
-    /** 关注 / 取消关注（按用户幂等）。返回操作后的「是否关注」状态 */
+    /** 关注 / 取消关注（按用户幂等）。返回操作后的「是否关注」状态；被关注者收到通知 */
     public boolean toggleFollow(Long followerId, Long targetId) {
         if (followerId.equals(targetId)) throw new IllegalArgumentException("不能关注自己");
         User follower = userRepository.findById(followerId)
@@ -109,6 +116,8 @@ public class UserService {
             return false;
         }
         followRepository.save(new Follow(follower, target));
+        notificationService.notify(targetId, "FOLLOW", followerId, follower.getName(),
+                "USER", followerId, "关注了你");
         return true;
     }
 
@@ -136,6 +145,16 @@ public class UserService {
     public List<UserDTO> listFollowers(Long id) {
         return followRepository.findByFollowingId(id).stream()
                 .map(f -> UserDTO.from(f.getFollower()))
+                .toList();
+    }
+
+    /** 我的收藏（按收藏时间倒序）；帖子已删除则自动跳过 */
+    public List<PostDTO> listFavorites(Long userId) {
+        return favoriteRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(f -> postRepository.findById(f.getPostId()))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(p -> PostDTO.from(p, false, true))
                 .toList();
     }
 

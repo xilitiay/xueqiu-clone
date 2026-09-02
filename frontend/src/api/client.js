@@ -202,36 +202,131 @@ export async function getStockPosts(symbol, page = 0, size = 10) {
   )
 }
 
-/** 帖子评论（分页，返回 CommentDTO 数组）。Mock 模式按页切片 */
-export async function getComments(postId, page = 0, size = 20) {
+/**
+ * 帖子评论树（顶层评论 + 内嵌 replies，单层嵌套）。
+ * Mock 回退：comments.json 的平铺评论映射为「顶层 + 空回复」结构。
+ */
+export async function getComments(postId) {
   return withFallback(
-    async () => {
-      const { data } = await axios.get(`${API}/posts/${postId}/comments`, { params: { page, size } })
-      return data.content
-    },
+    async () => (await axios.get(`${API}/posts/${postId}/comments`)).data,
     async () => {
       const { data } = await axios.get(`${MOCK}/comments.json`)
       const arr = data[postId] || []
-      const start = page * size
-      return arr.slice(start, start + size)
+      return arr.map((c) => ({
+        ...c,
+        authorId: null, likeCount: 0, liked: false, parentId: null, replies: []
+      }))
     }
   )
 }
 
-/** 发表评论（需登录）。后端返回新建 CommentDTO；Mock 模式本地构造一条 */
-export async function createComment(postId, content) {
+/** 评论点赞 / 取消点赞。返回 { liked, likeCount }；离线时本地切换 */
+export async function toggleCommentLike(id, currentLiked, currentCount) {
+  return withFallback(
+    async () => (await axios.post(`${API}/comments/${id}/like`)).data,
+    async () => ({
+      liked: !currentLiked,
+      likeCount: (currentCount || 0) + (currentLiked ? -1 : 1)
+    })
+  )
+}
+
+/** 发表评论（需登录）。parentId 为空为顶层评论，否则为回复 */
+export async function createComment(postId, content, parentId = null) {
   return withFallback(
     async () => {
       await ensureAuth()
-      const { data } = await axios.post(`${API}/posts/${postId}/comments`, { content })
+      const { data } = await axios.post(`${API}/posts/${postId}/comments`, { content, parentId })
       return data
     },
     async () => ({
       id: -Date.now(),
+      authorId: getCurrentUser()?.id ?? null,
       authorName: DEMO_AUTHOR.name,
       content,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      likeCount: 0, liked: false, parentId, replies: []
     })
+  )
+}
+
+// ---------- 收藏 ----------
+const FAV_KEY = 'xq_favorites'
+function localFavs() {
+  try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]') } catch { return [] }
+}
+
+/** 收藏 / 取消收藏。后端返回最新 PostDTO；离线时回退 localStorage */
+export async function toggleFavorite(postId) {
+  return withFallback(
+    async () => {
+      await ensureAuth()
+      return (await axios.post(`${API}/posts/${postId}/favorite`)).data
+    },
+    async () => {
+      const arr = localFavs()
+      const id = Number(postId)
+      const i = arr.indexOf(id)
+      if (i >= 0) arr.splice(i, 1)
+      else arr.push(id)
+      if (typeof localStorage !== 'undefined') localStorage.setItem(FAV_KEY, JSON.stringify(arr))
+      return { favorited: i < 0 }
+    }
+  )
+}
+
+/** 我的收藏（PostDTO 数组） */
+export async function getFavorites() {
+  return withFallback(
+    async () => (await axios.get(`${API}/favorites`)).data,
+    async () => {
+      const ids = localFavs()
+      if (!ids.length) return []
+      const { data } = await axios.get(`${MOCK}/feed.json`)
+      return data.filter((p) => ids.includes(p.id)).map((p) => ({ ...p, favorited: true }))
+    }
+  )
+}
+
+// ---------- 通知 ----------
+const MOCK_NOTIFICATIONS = [
+  { id: 1, type: 'LIKE_POST', actorId: 2, actorName: '趋势为王', targetType: 'POST', targetId: 2, text: '赞了你的帖子', read: false, createdAt: new Date(Date.now() - 3600e3).toISOString() },
+  { id: 2, type: 'COMMENT', actorId: 1, actorName: '价值发现者', targetType: 'POST', targetId: 2, text: '评论了你的帖子', read: false, createdAt: new Date(Date.now() - 7200e3).toISOString() },
+  { id: 3, type: 'REPLY', actorId: 3, actorName: '稳健派老张', targetType: 'POST', targetId: 2, text: '回复了你的评论', read: false, createdAt: new Date(Date.now() - 14400e3).toISOString() },
+  { id: 4, type: 'FOLLOW', actorId: 4, actorName: '科技观察', targetType: 'USER', targetId: 4, text: '关注了你', read: true, createdAt: new Date(Date.now() - 86400e3).toISOString() }
+]
+let mockNotifs = MOCK_NOTIFICATIONS.map((n) => ({ ...n }))
+
+/** 我的通知（NotificationDTO 数组） */
+export async function getNotifications() {
+  return withFallback(
+    async () => (await axios.get(`${API}/notifications`)).data,
+    async () => [...mockNotifs]
+  )
+}
+
+/** 未读通知数（头部红点角标） */
+export async function getUnreadCount() {
+  return withFallback(
+    async () => {
+      const { data } = await axios.get(`${API}/notifications/unread`)
+      return data?.count ?? 0
+    },
+    async () => mockNotifs.filter((n) => !n.read).length
+  )
+}
+
+/** 全部标记已读 */
+export async function markNotificationsRead() {
+  return withFallback(
+    async () => {
+      await axios.post(`${API}/notifications/read`)
+      return { ok: true }
+    },
+    async () => {
+      mockNotifs = mockNotifs.map((n) => ({ ...n, read: true }))
+      return { ok: true }
+    }
   )
 }
 

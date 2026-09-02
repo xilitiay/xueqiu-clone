@@ -23,10 +23,10 @@
 ├── backend/          # Spring Boot 后端（Java）
 │   ├── pom.xml
 │   └── src/main/java/com/xueqiu/clone/
-│       ├── model/       实体：User / Stock / Post / Comment / PostLike / IndexDef / Follow / Watchlist / Position
-│       ├── repository/  JPA 仓储（含 PostLikeRepository / IndexDefRepository / FollowRepository / WatchlistRepository / PositionRepository）
-│       ├── service/     FeedService / StockService / UserService / QuoteService / QuotePushScheduler / PortfolioService
-│       ├── controller/  FeedController / StockController / UserController / QuoteController / AuthController / SearchController / IndexDefController / WatchlistController
+│       ├── model/       实体：User / Stock / Post / Comment / PostLike / IndexDef / Follow / Watchlist / Position / CommentLike / Favorite / Notification
+│       ├── repository/  JPA 仓储（含 PostLikeRepository / IndexDefRepository / FollowRepository / WatchlistRepository / PositionRepository / CommentLikeRepository / FavoriteRepository / NotificationRepository）
+│       ├── service/     FeedService / StockService / UserService / QuoteService / QuotePushScheduler / PortfolioService / NotificationService
+│       ├── controller/  FeedController / StockController / UserController / QuoteController / AuthController / SearchController / IndexDefController / WatchlistController / NotificationController
 │       ├── dto/         响应体（避免直接暴露实体）
 │       ├── filter/      JWT 认证过滤器
 │       └── config/      CORS、安全、JWT、WebSocket、Mock 数据初始化
@@ -69,7 +69,14 @@ mvn spring-boot:run
 #   POST http://localhost:8080/api/auth/register         # 注册（body: {username,name,password}）
 #   POST http://localhost:8080/api/auth/login            # 登录（body: {username,password}）
 #   POST http://localhost:8080/api/posts                 # 发帖（需 Authorization: Bearer <token>）
-#   POST http://localhost:8080/api/posts/2/comments      # 评论（需 token）
+#   GET  http://localhost:8080/api/posts/2/comments      # 评论树（顶层评论 + 内嵌回复，登录带点赞态）
+#   POST http://localhost:8080/api/posts/2/comments      # 评论/回复（body: {content,parentId}，需 token）
+#   POST http://localhost:8080/api/comments/5/like       # 评论点赞/取消（需 token，幂等）
+#   POST http://localhost:8080/api/posts/2/favorite      # 收藏/取消收藏（需 token，幂等）
+#   GET  http://localhost:8080/api/favorites             # 我的收藏（需 token）
+#   GET  http://localhost:8080/api/notifications         # 通知列表（需 token）
+#   GET  http://localhost:8080/api/notifications/unread  # 未读通知数（需 token）
+#   POST http://localhost:8080/api/notifications/read    # 全部标记已读（需 token）
 #   POST http://localhost:8080/api/feed/2/like           # 点赞（需 token）
 # H2 控制台：http://localhost:8080/h2-console
 #
@@ -117,6 +124,14 @@ npm run build && npm run preview
 - **持仓管理（含浮动盈亏）**：用户持仓落库（`t_position` 表，份额 + 成本价），行情中心「持仓」Tab
   用实时行情计算市值、成本、浮动盈亏与盈亏比例，并汇总组合总盈亏；支持新增 / 编辑 / 删除持仓
 - **离线兜底**：后端未启动时，自选 / 持仓自动回退到浏览器 `localStorage`，交互不中断
+- **评论点赞**：评论点赞记录落库（`t_comment_like` 表，评论+用户唯一约束），评论树按登录用户返回
+  每条评论的「是否已点赞」状态，可重复切换点赞 / 取消（乐观更新）
+- **嵌套回复**：评论支持单层嵌套回复——顶层评论下内嵌 `replies`；「回复的回复」自动归入同一顶层
+  （避免无限层级），回复框预填 `@某人` 便于对方收到通知
+- **收藏**：帖子收藏落库（`t_favorite` 表，帖子+用户唯一约束）；帖子卡片与详情页提供「收藏 / 已收藏」
+  按钮，用户主页新增「收藏」Tab（仅本人可见）展示收藏的帖子
+- **通知中心**：点赞帖子 / 评论帖子 / 回复评论 / 关注你 / 正文 `@提及` 你时生成通知（`t_notification` 表）；
+  头部铃铛显示未读红点角标，下拉展示通知列表并自动标记已读，点击跳转到对应帖子或用户主页
 - 路由：首页 `/`、行情 `/market`、个股 `/stock/:symbol`、帖子 `/post/:id`、用户 `/user/:id`、搜索 `/search`
 
 ### 实时行情接入（可配置行情 Key）

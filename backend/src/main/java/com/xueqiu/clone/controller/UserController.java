@@ -1,5 +1,6 @@
 package com.xueqiu.clone.controller;
 
+import com.xueqiu.clone.dto.PostDTO;
 import com.xueqiu.clone.dto.UserDTO;
 import com.xueqiu.clone.dto.UserProfileDTO;
 import com.xueqiu.clone.service.UserService;
@@ -46,6 +47,14 @@ public class UserController {
     @GetMapping("/users/{id}/followers")
     public List<UserDTO> followers(@PathVariable String id) {
         return userService.listFollowers(userService.resolveUserId(id));
+    }
+
+    /** 我的收藏（需登录，按收藏时间倒序） */
+    @GetMapping("/favorites")
+    public List<PostDTO> favorites(Authentication authentication) {
+        Long me = currentUserId(authentication);
+        if (me == null) throw new IllegalStateException("请先登录后再查看收藏");
+        return userService.listFavorites(me);
     }
 
     /** 从 Spring Security 的 Authentication 解析当前用户 id；匿名 / 未登录返回 null */

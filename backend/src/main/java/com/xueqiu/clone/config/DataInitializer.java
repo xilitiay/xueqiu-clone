@@ -26,12 +26,17 @@ public class DataInitializer implements CommandLineRunner {
     private final IndexDefRepository indexDefRepository;
     private final WatchlistRepository watchlistRepository;
     private final PositionRepository positionRepository;
+    private final CommentLikeRepository commentLikeRepository;
+    private final FavoriteRepository favoriteRepository;
+    private final NotificationRepository notificationRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataInitializer(UserRepository userRepository, StockRepository stockRepository,
                            PostRepository postRepository, CommentRepository commentRepository,
                            IndexDefRepository indexDefRepository, WatchlistRepository watchlistRepository,
-                           PositionRepository positionRepository, PasswordEncoder passwordEncoder) {
+                           PositionRepository positionRepository, CommentLikeRepository commentLikeRepository,
+                           FavoriteRepository favoriteRepository, NotificationRepository notificationRepository,
+                           PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.stockRepository = stockRepository;
         this.postRepository = postRepository;
@@ -39,6 +44,9 @@ public class DataInitializer implements CommandLineRunner {
         this.indexDefRepository = indexDefRepository;
         this.watchlistRepository = watchlistRepository;
         this.positionRepository = positionRepository;
+        this.commentLikeRepository = commentLikeRepository;
+        this.favoriteRepository = favoriteRepository;
+        this.notificationRepository = notificationRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -97,6 +105,8 @@ public class DataInitializer implements CommandLineRunner {
         posts.add(post(u2, "腾讯这波回购很稳，每天雷打不动。对股东友好这事儿，长期会反映在估值里。", hoursAgo(26), 503, 45, List.of(s6)));
         posts.add(post(u3, "招商银行的中收占比在股份行里靠前，零售底盘扎实。作为组合里的「现金等价物」仓位很合适。", hoursAgo(30), 162, 19, List.of(s5)));
         posts.add(post(u5, "跟风买了点宁德，结果赶上回调有点慌。前辈们遇到浮亏一般怎么处理？是补仓还是等企稳？", hoursAgo(34), 134, 58, List.of(s2)));
+        // 演示账号自己的帖子（供「通知」示例：别人点赞/评论/回复/@提及 这条帖子）
+        posts.add(post(demo, "开个帖子记录自己的组合：银行+保险压舱，成长仓位给到电池和半导体。目标不是跑赢多少，而是把回撤控制住。", hoursAgo(5), 12, 2, List.of(s4, s5)));
 
         postRepository.saveAll(posts);
 
@@ -107,7 +117,38 @@ public class DataInitializer implements CommandLineRunner {
         comments.add(comment(posts.get(5), u1, "推荐《聪明的投资者》，先建立框架再下场。", hoursAgo(10)));
         comments.add(comment(posts.get(11), u3, "先看仓位重不重，重就别补，轻仓可以分批。", hoursAgo(33)));
         comments.add(comment(posts.get(11), u6, "浮亏先问自己：买入逻辑变没变？没变就拿着。", hoursAgo(32)));
+
+        // ---------- 嵌套回复示例（演示账号帖子下：顶层评论 + 回复） ----------
+        Post demoPost = posts.get(12);
+        Comment top = new Comment(demoPost, u1, "组合思路挺稳，压舱+进攻的配置很清晰。", hoursAgo(4));
+        top = commentRepository.save(top);
+        Comment reply = new Comment(demoPost, u3, "同意，我也是这个思路，回撤先于收益。", hoursAgo(3));
+        reply.setParentId(top.getId());   // 回复归入同一顶层（单层嵌套）
+        reply = commentRepository.save(reply);
         commentRepository.saveAll(comments);
+
+        // ---------- 评论点赞示例 ----------
+        commentLikeRepository.save(new CommentLike(reply.getId(), u1.getId()));
+        reply.setLikeCount(1);
+        commentLikeRepository.save(new CommentLike(top.getId(), u2.getId()));
+        top.setLikeCount(1);
+        commentRepository.saveAll(List.of(top, reply));
+
+        // ---------- 收藏示例 ----------
+        favoriteRepository.save(new Favorite(posts.get(1).getId(), demo.getId()));
+        favoriteRepository.save(new Favorite(posts.get(8).getId(), demo.getId()));
+
+        // ---------- 通知示例（发给演示账号，覆盖各类互动） ----------
+        notificationRepository.save(new Notification(demo.getId(), "LIKE_POST", u2.getId(), u2.getName(),
+                "POST", demoPost.getId(), "赞了你的帖子"));
+        notificationRepository.save(new Notification(demo.getId(), "COMMENT", u1.getId(), u1.getName(),
+                "POST", demoPost.getId(), "评论了你的帖子"));
+        notificationRepository.save(new Notification(demo.getId(), "REPLY", u3.getId(), u3.getName(),
+                "POST", demoPost.getId(), "回复了你的评论"));
+        notificationRepository.save(new Notification(demo.getId(), "FOLLOW", u4.getId(), u4.getName(),
+                "USER", u4.getId(), "关注了你"));
+        notificationRepository.save(new Notification(demo.getId(), "MENTION", u6.getId(), u6.getName(),
+                "POST", demoPost.getId(), "在内容中提到了你"));
 
         // ---------- 演示账号的自选与持仓（前端行情中心 / 持仓 Tab 默认有内容） ----------
         watchlistRepository.save(new Watchlist(demo.getId(), "SH600519", 0)); // 贵州茅台

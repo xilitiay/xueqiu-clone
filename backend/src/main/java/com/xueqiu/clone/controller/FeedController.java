@@ -11,9 +11,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 信息流 / 帖子接口。
- * 写操作（发帖、点赞、评论）需携带 JWT（见 SecurityConfig）。
+ * 写操作（发帖、点赞、评论、评论点赞、收藏）需携带 JWT（见 SecurityConfig）。
  */
 @RestController
 @RequestMapping("/api")
@@ -58,21 +60,34 @@ public class FeedController {
         return feedService.getPost(id, currentUserId(authentication));
     }
 
-    /** 帖子评论列表（分页） */
+    /**
+     * 帖子评论树（顶层评论 + 内嵌回复，单层嵌套）。
+     * 登录后会带「当前用户对每条评论是否已点赞」状态。
+     */
     @GetMapping("/posts/{id}/comments")
-    public Page<CommentDTO> comments(@PathVariable Long id,
-                                     @RequestParam(defaultValue = "0") int page,
-                                     @RequestParam(defaultValue = "20") int size) {
-        return stockService.getComments(id, page, size);
+    public List<CommentDTO> comments(@PathVariable Long id, Authentication authentication) {
+        return stockService.getCommentTree(id, currentUserId(authentication));
     }
 
-    /** 发表评论（需登录） */
+    /** 发表评论（需登录）。parentId 为空为顶层评论，否则为回复 */
     @PostMapping("/posts/{id}/comments")
     public CommentDTO addComment(@PathVariable Long id,
                                  @RequestBody CommentRequest req,
                                  Authentication authentication) {
-        Long uid = userService.findByUsername(authentication.getName()).getId();
-        return stockService.addComment(id, uid, req.content());
+        Long uid = requireLogin(authentication);
+        return stockService.addComment(id, uid, req.content(), req.parentId());
+    }
+
+    /** 评论点赞 / 取消点赞（需登录，按用户持久化） */
+    @PostMapping("/comments/{id}/like")
+    public CommentDTO likeComment(@PathVariable Long id, Authentication authentication) {
+        return stockService.toggleCommentLike(id, requireLogin(authentication));
+    }
+
+    /** 收藏 / 取消收藏（需登录，按用户持久化）。返回最新收藏态 */
+    @PostMapping("/posts/{id}/favorite")
+    public PostDTO favorite(@PathVariable Long id, Authentication authentication) {
+        return feedService.toggleFavorite(id, requireLogin(authentication));
     }
 
     /** 从 Spring Security 的 Authentication 解析当前用户 id；匿名 / 未登录返回 null */
@@ -83,5 +98,11 @@ public class FeedController {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private Long requireLogin(Authentication authentication) {
+        Long uid = currentUserId(authentication);
+        if (uid == null) throw new IllegalStateException("请先登录后再操作");
+        return uid;
     }
 }

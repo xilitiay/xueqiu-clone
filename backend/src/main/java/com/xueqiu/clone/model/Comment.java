@@ -30,6 +30,12 @@ public class Comment {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
+    /** 嵌套回复：顶层评论 parentId 为 null；回复某条评论时指向其所属顶层评论 id（保持单层） */
+    private Long parentId;
+
+    /** 评论点赞数（非规范化计数，配合 CommentLike 表判断当前用户是否点赞） */
+    private int likeCount = 0;
+
     private LocalDateTime createdAt;
 
     public Comment(Post post, User author, String content, LocalDateTime createdAt) {
